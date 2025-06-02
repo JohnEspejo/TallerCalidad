@@ -42,4 +42,94 @@ class LoanControllerTest {
         loanRepository.deleteAll();
         deviceRepository.deleteAll();
     }
+
+    @Test
+    void registerLoanTest() throws Exception {
+        Device deviceSaved = deviceRepository.save(new Device(null, "Laptop", "Electronics", "Office", DeviceStatus.AVAILABLE, System.currentTimeMillis()));
+        Loan loan = new Loan(null, deviceSaved.getId(), "Juan Perez", System.currentTimeMillis(), System.currentTimeMillis() + 604800000L, false);
+
+        mockMvc.perform(
+                post("/api/loans")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(loan))
+        ).andExpect(status().isCreated())
+        .andExpect(jsonPath(("$.borrowedBy"), is("Juan Perez")))
+        .andExpect(jsonPath("$.deviceId", is(deviceSaved.getId().intValue())));
+    }
+
+    @Test
+    void registerLoanInvalidDeviceTest() throws Exception {
+        Loan loan = new Loan(null, 1L, "Juan Perez", System.currentTimeMillis(), System.currentTimeMillis() + 604800000L, false);
+
+        mockMvc.perform(
+                post("/api/loans")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(loan))
+        ).andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void getAllLoansTest() throws Exception {
+        Device deviceSaved1 = deviceRepository.save(new Device(null, "Laptop", "Electronics", "Office", DeviceStatus.AVAILABLE, System.currentTimeMillis()));
+        loanRepository.save(new Loan(null, deviceSaved1.getId(), "Juan Perez", System.currentTimeMillis(), System.currentTimeMillis() + 604800000L, false));
+
+        Device deviceSaved2 = deviceRepository.save(new Device(null, "TVs", "Electronics", "Movie Room", DeviceStatus.AVAILABLE, System.currentTimeMillis()));
+        loanRepository.save(new Loan(null, deviceSaved2.getId(), "Juan Perez", System.currentTimeMillis(), System.currentTimeMillis() + 604800000L, false));
+
+        mockMvc.perform(
+            get("/api/loans")
+        ).andExpect(status().isOk())
+        .andExpect(jsonPath("$", hasSize(2)));
+    }
+
+    @Test
+    void getLoanByIdTest() throws Exception {
+        Device deviceSaved = deviceRepository.save(new Device(null, "Laptop", "Electronics", "Office", DeviceStatus.AVAILABLE, System.currentTimeMillis()));
+        Loan loanSaved = loanRepository.save(new Loan(null, deviceSaved.getId(), "Juan Perez", System.currentTimeMillis(), System.currentTimeMillis() + 604800000L, false));
+
+        mockMvc.perform(
+            get("/api/loans/" + loanSaved.getId())
+        ).andExpect(status().isOk())
+        .andExpect(jsonPath("$.borrowedBy", is("Juan Perez")))
+        .andExpect(jsonPath("$.deviceId", is(deviceSaved.getId().intValue())));
+    }
+
+    @Test
+    void markAsReturnedTest() throws Exception {
+        Device deviceSaved = deviceRepository.save(new Device(null, "Laptop", "Electronics", "Office", DeviceStatus.AVAILABLE, System.currentTimeMillis()));
+        Loan loanSaved = loanRepository.save(new Loan(null, deviceSaved.getId(), "Juan Perez", System.currentTimeMillis(), System.currentTimeMillis() + 604800000L, false));
+
+        mockMvc.perform(
+            put("/api/loans/" + loanSaved.getId() + "/return")
+        ).andExpect(status().isOk())
+        .andExpect(jsonPath("$.returned", is(true)))
+        .andExpect(jsonPath("$.deviceId", is(deviceSaved.getId().intValue())));
+    }
+
+    @Test
+    void markAsReturnedLoanNotFoundTest() throws Exception {
+        mockMvc.perform(
+            put("/api/loans/8/return")
+        ).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void markAsReturnedAlreadyReturnedTest() throws Exception {
+        Loan loanSaved = loanRepository.save(new Loan(null, null, "Juan Perez", System.currentTimeMillis(), System.currentTimeMillis() + 604800000L, true));
+
+        mockMvc.perform(
+            put("/api/loans/" + loanSaved.getId() + "/return")
+        ).andExpect(status().isConflict());
+    }
+
+    @Test
+    void getLoansByDeviceIdTest() throws Exception {
+        Device deviceSaved = deviceRepository.save(new Device(null, "Laptop", "Electronics", "Office", DeviceStatus.AVAILABLE, System.currentTimeMillis()));
+        loanRepository.save(new Loan(null, deviceSaved.getId(), "Juan Perez", System.currentTimeMillis(), System.currentTimeMillis() + 604800000L, false));
+
+        mockMvc.perform(
+            get("/api/loans/device/" + deviceSaved.getId())
+        ).andExpect(status().isOk())
+        .andExpect(jsonPath("$", hasSize(1)));
+    }
 }
