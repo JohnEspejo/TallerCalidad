@@ -36,3 +36,6 @@ build/
 
 ### Mac OS ###
 .DS_Store
+
+### Driver files ###
+src/main/java/edu/unac/drivers/chromedriver.exe
